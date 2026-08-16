@@ -1,201 +1,146 @@
-{
- "cells": [
-  {
-   "cell_type": "code",
-   "execution_count": null,
-   "id": "ca9a413d-2bd9-49df-b461-9804ba184e40",
-   "metadata": {},
-   "outputs": [],
-   "source": [
-    "import streamlit as st\n",
-    "\n",
-    "#IMPORTING LIBRARIES\n",
-    "from langchain_community.document_loaders import PyPDFLoader\n",
-    "from langchain_text_splitters import RecursiveCharacterTextSplitter\n",
-    "from langchain_core.vectorstores import InMemoryVectorStore\n",
-    "from langchain_huggingface import HuggingFaceEmbeddings\n",
-    "import google.generativeai as genai\n",
-    "\n",
-    "\n",
-    "\n",
-    "# STREAMLIT UI\n",
-    "st.set_page_config(\n",
-    "    page_title=\"Consumer Legal AI\",\n",
-    "    page_icon=\"⚖️\",\n",
-    "    layout=\"wide\"\n",
-    ")\n",
-    "\n",
-    "st.title(\"⚖️ Consumer Legal AI\")\n",
-    "\n",
-    "st.write(\n",
-    "    \"AI-powered legal assistance based on the \"\n",
-    "    \"Consumer Protection Act, 2019.\"\n",
-    ")\n",
-    "\n",
-    "st.info(\n",
-    "    \"⚠️ This AI assistant provides general legal information \"\n",
-    "    \"and is not a substitute for professional legal advice.\"\n",
-    ")\n",
-    "\n",
-    "\n",
-    "# RAG-PIPELINE\n",
-    "\n",
-    "# LOADING DOCUMENT\n",
-    "\n",
-    "loader = PyPDFLoader(\"consumer_act.pdf\")\n",
-    "documents = loader.load()\n",
-    "\n",
-    "# CHUNKING\n",
-    "\n",
-    "text_splitter = RecursiveCharacterTextSplitter(\n",
-    "    chunk_size=1000,\n",
-    "    chunk_overlap=300\n",
-    ")\n",
-    "\n",
-    "chunks = text_splitter.split_documents(documents)\n",
-    "\n",
-    "# EMBEDDING\n",
-    "\n",
-    "model = HuggingFaceEmbeddings(\n",
-    "    model_name=\"sentence-transformers/all-MiniLM-L6-v2\"\n",
-    ")\n",
-    "\n",
-    "# VECTOR STORE\n",
-    "\n",
-    "vectorstore = InMemoryVectorStore(\n",
-    "    embedding=model\n",
-    ")\n",
-    "\n",
-    "vectorstore.add_documents(\n",
-    "    documents=chunks\n",
-    ")\n",
-    "\n",
-    "\n",
-    "# RETRIEVER\n",
-    "\n",
-    "retriever = vectorstore.as_retriever()\n",
-    "\n",
-    "\n",
-    "# API KEY LOADING\n",
-    "\n",
-    "genai.configure(\n",
-    "    api_key=st.secrets[\"GOOGLE_API_KEY\"]\n",
-    ")\n",
-    "\n",
-    "llm = genai.GenerativeModel(\n",
-    "    \"gemini-2.5-flash\"\n",
-    ")\n",
-    "\n",
-    "\n",
-    "\n",
-    "# USER QUERY\n",
-    "\n",
-    "\n",
-    "question = st.chat_input(\n",
-    "    \"Describe your consumer issue...\"\n",
-    ")\n",
-    "\n",
-    "\n",
-    "\n",
-    "if question:\n",
-    "\n",
-    "    # RETRIEVAL\n",
-    "\n",
-    "    retrieved_documents = retriever.invoke(question)\n",
-    "\n",
-    "\n",
-    "    # YOUR EXISTING GEMINI PROMPT\n",
-    "\n",
-    "    response = llm.generate_content(\n",
-    "        f\"\"\"You are an AI legal assistant for the Consumer Protection Act, 2019.\n",
-    "\n",
-    "Instructions:\n",
-    "1. Answer ONLY using the retrieved context.\n",
-    "2. First identify the consumer's issue.\n",
-    "3. Explain how the retrieved legal provisions apply to the user's situation.\n",
-    "4. Mention the relevant sections used.\n",
-    "5. If the context supports it, explain the remedies available.\n",
-    "6. Do not include unrelated provisions.\n",
-    "7. If the context is insufficient, explicitly state that additional legal provisions are needed.\n",
-    "8. Never invent laws or sections.\n",
-    "\n",
-    "retrieved context:{retrieved_documents}\n",
-    "\n",
-    "questions:{question}\n",
-    "\n",
-    "Your citations MUST include:\n",
-    "- Document name\n",
-    "- Page number\n",
-    "- Section/article if available\n",
-    "- Source/file name\n",
-    "\n",
-    "Citation format:\n",
-    "\n",
-    "[Source: <document name>, Page: <page_label>, Section: <section>]\n",
-    "\n",
-    "If a particular metadata field is unavailable, write \"Not available\".\n",
-    "\n",
-    "DO NOT invent page numbers, sections, document names, or other metadata.\n",
-    "\n",
-    "If multiple pieces of information come from different pages, cite each relevant page separately.\n",
-    "\"\"\"\n",
-    "    )\n",
-    "\n",
-    "\n",
-    "    # ======================================================\n",
-    "    # DISPLAY ANSWER\n",
-    "    # ======================================================\n",
-    "\n",
-    "    st.markdown(\"### ⚖️ Legal Assistant\")\n",
-    "\n",
-    "    st.write(response.text)\n",
-    "\n",
-    "\n",
-    "    # ======================================================\n",
-    "    # SHOW RETRIEVED DOCUMENTS\n",
-    "    # ======================================================\n",
-    "\n",
-    "    with st.expander(\"📚 View Retrieved Legal Context\"):\n",
-    "\n",
-    "        for i, doc in enumerate(retrieved_documents):\n",
-    "\n",
-    "            st.markdown(f\"### Source {i + 1}\")\n",
-    "\n",
-    "            st.write(\n",
-    "                f\"**Page:** \"\n",
-    "                f\"{doc.metadata.get('page_label', 'Not available')}\"\n",
-    "            )\n",
-    "\n",
-    "            st.write(\n",
-    "                f\"**Document:** \"\n",
-    "                f\"{doc.metadata.get('source', 'Not available')}\"\n",
-    "            )\n",
-    "\n",
-    "            st.write(doc.page_content)\n",
-    "\n",
-    "            st.divider()"
-   ]
-  }
- ],
- "metadata": {
-  "kernelspec": {
-   "display_name": "Python (myenv)",
-   "language": "python",
-   "name": "myenv"
-  },
-  "language_info": {
-   "codemirror_mode": {
-    "name": "ipython",
-    "version": 3
-   },
-   "file_extension": ".py",
-   "mimetype": "text/x-python",
-   "name": "python",
-   "nbconvert_exporter": "python",
-   "pygments_lexer": "ipython3",
-   "version": "3.13.9"
-  }
- },
- "nbformat": 4,
- "nbformat_minor": 5
-}
+import streamlit as st
+
+#IMPORTING LIBRARIES
+from langchain_community.document_loaders import PyPDFLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_core.vectorstores import InMemoryVectorStore
+from langchain_huggingface import HuggingFaceEmbeddings
+import google.generativeai as genai
+
+# STREAMLIT UI
+st.set_page_config(
+    page_title="Consumer Legal AI",
+    page_icon="⚖️",
+    layout="wide"
+)
+
+st.title("⚖️ Consumer Legal AI")
+
+st.write(
+    "AI-powered legal assistance based on the "
+    "Consumer Protection Act, 2019."
+)
+
+st.info(
+    "⚠️ This AI assistant provides general legal information "
+    "and is not a substitute for professional legal advice."
+)
+
+
+# RAG-PIPELINE
+
+# LOADING DOCUMENT
+loader = PyPDFLoader("consumer_act.pdf")
+documents = loader.load()
+
+# CHUNKING
+text_splitter = RecursiveCharacterTextSplitter(
+    chunk_size=1000,
+    chunk_overlap=300
+)
+
+chunks = text_splitter.split_documents(documents)
+
+# EMBEDDING
+model = HuggingFaceEmbeddings(
+    model_name="sentence-transformers/all-MiniLM-L6-v2"
+)
+
+# VECTOR STORE
+vectorstore = InMemoryVectorStore(
+    embedding=model
+)
+
+vectorstore.add_documents(
+    documents=chunks
+)
+
+
+# RETRIEVER
+retriever = vectorstore.as_retriever()
+
+
+# API KEY LOADING
+genai.configure(
+    api_key=st.secrets["GOOGLE_API_KEY"]
+)
+
+llm = genai.GenerativeModel(
+    "gemini-2.5-flash"
+)
+
+
+# USER QUERY
+question = st.chat_input(
+    "Describe your consumer issue..."
+)
+
+
+if question:
+
+    # RETRIEVAL
+    retrieved_documents = retriever.invoke(question)
+
+    #PROMPT
+    response = llm.generate_content(
+        f"""You are an AI legal assistant for the Consumer Protection Act, 2019.
+
+Instructions:
+1. Answer ONLY using the retrieved context.
+2. First identify the consumer's issue.
+3. Explain how the retrieved legal provisions apply to the user's situation.
+4. Mention the relevant sections used.
+5. If the context supports it, explain the remedies available.
+6. Do not include unrelated provisions.
+7. If the context is insufficient, explicitly state that additional legal provisions are needed.
+8. Never invent laws or sections.
+
+retrieved context:{retrieved_documents}
+
+questions:{question}
+
+Your citations MUST include:
+- Document name
+- Page number
+- Section/article if available
+- Source/file name
+
+Citation format:
+
+[Source: <document name>, Page: <page_label>, Section: <section>]
+
+If a particular metadata field is unavailable, write "Not available".
+
+DO NOT invent page numbers, sections, document names, or other metadata.
+
+If multiple pieces of information come from different pages, cite each relevant page separately.
+"""
+    )
+
+
+   
+    # DISPLAY ANSWER
+    st.markdown("### ⚖️ Legal Assistant")
+
+    st.write(response.text)
+
+    # SHOW RETRIEVED DOCUMENTS
+    with st.expander("📚 View Retrieved Legal Context"):
+
+        for i, doc in enumerate(retrieved_documents):
+
+            st.markdown(f"### Source {i + 1}")
+
+            st.write(
+                f"**Page:** "
+                f"{doc.metadata.get('page_label', 'Not available')}"
+            )
+
+            st.write(
+                f"**Document:** "
+                f"{doc.metadata.get('source', 'Not available')}"
+            )
+
+            st.write(doc.page_content)
+
+            st.divider()
