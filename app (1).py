@@ -21,10 +21,6 @@ st.write(
     "Consumer Protection Act, 2019."
 )
 
-st.info(
-    "⚠️ This AI assistant provides general legal information "
-    "and is not a substitute for professional legal advice."
-)
 
 
 # RAG-PIPELINE
@@ -145,22 +141,39 @@ retrieved context:{retrieved_documents}
 
 questions:{question}
 
-Your citations MUST include:
-- Document name
-- Page number
-- Section/article if available
-- Source/file name
 
-Citation format:
+Your answer must use simple source labels only.
 
-[Source: <document name>, Page: <page_label>, Section: <section>]
+For information supported by the first retrieved source, write:
+[Source 1]
 
-If a particular metadata field is unavailable, write "Not available".
+For information supported by the second retrieved source, write:
+[Source 2]
 
-DO NOT invent page numbers, sections, document names, or other metadata.
+For information supported by the third retrieved source, write:
+[Source 3]
 
-If multiple pieces of information come from different pages,
-cite each relevant page separately.
+Continue numbering the sources in the same order as they appear
+in the retrieved context.
+
+DO NOT include:
+- UUIDs
+- document IDs
+- file names
+- page numbers
+- metadata
+- long source identifiers
+
+Use ONLY:
+[Source 1]
+[Source 2]
+[Source 3]
+etc.
+
+If one statement is supported by multiple sources, write:
+[Source 1][Source 2]
+
+Do not invent sources. Use only the sources provided in the retrieved context..
 """
     )
 
