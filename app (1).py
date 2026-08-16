@@ -1,6 +1,6 @@
 import streamlit as st
 
-#IMPORTING LIBRARIES
+# IMPORTING LIBRARIES
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.vectorstores import InMemoryVectorStore
@@ -56,8 +56,51 @@ vectorstore.add_documents(
 )
 
 
-# RETRIEVER
-retriever = vectorstore.as_retriever()
+# SPARSE VECTOR
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+
+tfidf_vec = TfidfVectorizer()
+
+tfidf_matrix = tfidf_vec.fit_transform(
+    [chunk.page_content for chunk in chunks]
+)
+
+
+# HYBRID RETRIEVAL
+def hybrid_retrival(query, k=4):
+
+    # Dense
+    dense_doc = vectorstore.similarity_search(
+        query,
+        k=k
+    )
+
+    # TF-IDF
+    query_ = tfidf_vec.transform([query])
+
+    score = cosine_similarity(
+        query_,
+        tfidf_matrix
+    )[0]
+
+    # Top k TF-IDF chunks
+    top_indices = score.argsort()[-k:][::-1]
+
+    tfidf_doc = [
+        chunks[i]
+        for i in top_indices
+    ]
+
+    # Combine
+    combine_doc = []
+
+    for doc in dense_doc + tfidf_doc:
+
+        if doc not in combine_doc:
+            combine_doc.append(doc)
+
+    return combine_doc[:k]
 
 
 # API KEY LOADING
@@ -79,9 +122,12 @@ question = st.chat_input(
 if question:
 
     # RETRIEVAL
-    retrieved_documents = retriever.invoke(question)
+    retrieved_documents = hybrid_retrival(
+        question,
+        k=4
+    )
 
-    #PROMPT
+    # PROMPT
     response = llm.generate_content(
         f"""You are an AI legal assistant for the Consumer Protection Act, 2019.
 
@@ -113,12 +159,11 @@ If a particular metadata field is unavailable, write "Not available".
 
 DO NOT invent page numbers, sections, document names, or other metadata.
 
-If multiple pieces of information come from different pages, cite each relevant page separately.
+If multiple pieces of information come from different pages,
+cite each relevant page separately.
 """
     )
 
-
-   
     # DISPLAY ANSWER
     st.markdown("### ⚖️ Legal Assistant")
 
