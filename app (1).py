@@ -1,13 +1,16 @@
 import streamlit as st
 
 # IMPORTING LIBRARIES
+from config import chunk_size, chunk_overlap, embedding_model, prompt
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.vectorstores import InMemoryVectorStore
-from langchain_huggingface import HuggingFaceEmbeddings
 import google.generativeai as genai
 
+# --------------------------------------------------
 # STREAMLIT UI
+# --------------------------------------------------
+
 st.set_page_config(
     page_title="Consumer Legal AI",
     page_icon="⚖️",
@@ -21,26 +24,48 @@ st.write(
     "Consumer Protection Act, 2019."
 )
 
+# CHAT HISTORY
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+
+# SIDEBAR
+with st.sidebar:
+
+    st.header("⚖️ Consumer Legal AI")
+
+    st.write(
+        "Ask questions related to consumer rights "
+        "under the Consumer Protection Act, 2019."
+    )
+
+    st.divider()
+
+    if st.button("🗑️ Clear Chat"):
+        st.session_state.chat_history = []
+        st.rerun()
 
 
+# --------------------------------------------------
 # RAG-PIPELINE
+# --------------------------------------------------
 
 # LOADING DOCUMENT
 loader = PyPDFLoader("consumer_act.pdf")
 documents = loader.load()
 
+
 # CHUNKING
 text_splitter = RecursiveCharacterTextSplitter(
-    chunk_size=1000,
-    chunk_overlap=300
+    chunk_size=chunk_size,
+    chunk_overlap=chunk_overlap
 )
 
 chunks = text_splitter.split_documents(documents)
 
+
 # EMBEDDING
-model = HuggingFaceEmbeddings(
-    model_name="sentence-transformers/all-MiniLM-L6-v2"
-)
+model = embedding_model
+
 
 # VECTOR STORE
 vectorstore = InMemoryVectorStore(
@@ -52,7 +77,10 @@ vectorstore.add_documents(
 )
 
 
+# --------------------------------------------------
 # SPARSE VECTOR
+# --------------------------------------------------
+
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -63,7 +91,10 @@ tfidf_matrix = tfidf_vec.fit_transform(
 )
 
 
+# --------------------------------------------------
 # HYBRID RETRIEVAL
+# --------------------------------------------------
+
 def hybrid_retrival(query, k=4):
 
     # Dense
@@ -99,7 +130,10 @@ def hybrid_retrival(query, k=4):
     return combine_doc[:k]
 
 
+# --------------------------------------------------
 # API KEY LOADING
+# --------------------------------------------------
+
 genai.configure(
     api_key=st.secrets["GOOGLE_API_KEY"]
 )
@@ -109,7 +143,21 @@ llm = genai.GenerativeModel(
 )
 
 
+# --------------------------------------------------
+# DISPLAY PREVIOUS CHAT
+# --------------------------------------------------
+
+for message in st.session_state.chat_history:
+
+    with st.chat_message(message["role"]):
+
+        st.write(message["content"])
+
+
+# --------------------------------------------------
 # USER QUERY
+# --------------------------------------------------
+
 question = st.chat_input(
     "Describe your consumer issue..."
 )
@@ -117,88 +165,86 @@ question = st.chat_input(
 
 if question:
 
+    # DISPLAY USER QUESTION
+    with st.chat_message("user"):
+        st.write(question)
+
     # RETRIEVAL
     retrieved_documents = hybrid_retrival(
         question,
         k=4
     )
 
-    # PROMPT
-    response = llm.generate_content(
-        f"""You are an AI legal assistant for the Consumer Protection Act, 2019.
-
-Instructions:
-1. Answer ONLY using the retrieved context.
-2. First identify the consumer's issue.
-3. Explain how the retrieved legal provisions apply to the user's situation.
-4. Mention the relevant sections used.
-5. If the context supports it, explain the remedies available.
-6. Do not include unrelated provisions.
-7. If the context is insufficient, explicitly state that additional legal provisions are needed.
-8. Never invent laws or sections.
-
-retrieved context:{retrieved_documents}
-
-questions:{question}
-
-
-Your answer must use simple source labels only.
-
-For information supported by the first retrieved source, write:
-[Source 1]
-
-For information supported by the second retrieved source, write:
-[Source 2]
-
-For information supported by the third retrieved source, write:
-[Source 3]
-
-Continue numbering the sources in the same order as they appear
-in the retrieved context.
-
-DO NOT include:
-- UUIDs
-- document IDs
-- file names
-- page numbers
-- metadata
-- long source identifiers
-
-Use ONLY:
-[Source 1]
-[Source 2]
-[Source 3]
-etc.
-
-If one statement is supported by multiple sources, write:
-[Source 1][Source 2]
-
-Do not invent sources. Use only the sources provided in the retrieved context..
-"""
+    # CONVERT DOCUMENTS TO TEXT
+    retrieved_context = "\n\n".join(
+        [
+            f"[Source {i + 1}]\n{doc.page_content}"
+            for i, doc in enumerate(retrieved_documents)
+        ]
     )
 
-    # DISPLAY ANSWER
-    st.markdown("### ⚖️ Legal Assistant")
+    # CONVERSATION HISTORY
+    history = "\n".join(
+        [
+            f"{message['role']}: {message['content']}"
+            for message in st.session_state.chat_history
+        ]
+    )
 
-    st.write(response.text)
+    # PROMPT
+    prompt = prompt.format(
+        history=history,
+        retrieved_context=retrieved_context,
+        question=question
+    )
 
-    # SHOW RETRIEVED DOCUMENTS
-    with st.expander("📚 View Retrieved Legal Context"):
+    # GENERATION
+    response = llm.generate_content(
+        prompt
+    )
 
-        for i, doc in enumerate(retrieved_documents):
+    answer = response.text
 
-            st.markdown(f"### Source {i + 1}")
+    # DISPLAY AI RESPONSE
+    with st.chat_message("assistant"):
 
-            st.write(
-                f"**Page:** "
-                f"{doc.metadata.get('page_label', 'Not available')}"
-            )
+        st.write(answer)
 
-            st.write(
-                f"**Document:** "
-                f"{doc.metadata.get('source', 'Not available')}"
-            )
+        # SHOW SOURCES
+        with st.expander("📚 View Retrieved Legal Context"):
 
-            st.write(doc.page_content)
+            for i, doc in enumerate(retrieved_documents):
 
-            st.divider()
+                st.markdown(
+                    f"### Source {i + 1}"
+                )
+
+                st.write(
+                    f"**Page:** "
+                    f"{doc.metadata.get('page_label', 'Not available')}"
+                )
+
+                st.write(
+                    f"**Document:** "
+                    f"{doc.metadata.get('source', 'Not available')}"
+                )
+
+                st.write(doc.page_content)
+
+                st.divider()
+
+    # SAVE USER MESSAGE
+    st.session_state.chat_history.append(
+        {
+            "role": "user",
+            "content": question
+        }
+    )
+
+    # SAVE AI MESSAGE
+    st.session_state.chat_history.append(
+        {
+            "role": "assistant",
+            "content": answer
+        }
+    )
