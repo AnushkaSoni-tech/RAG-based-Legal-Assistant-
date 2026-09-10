@@ -7,13 +7,16 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.vectorstores import InMemoryVectorStore
 import google.generativeai as genai
 
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+
 
 # --------------------------------------------------
 # PAGE CONFIG
 # --------------------------------------------------
 
 st.set_page_config(
-    page_title="Consumer Legal AI",
+    page_title="AI-Powered legal Assistant for Indian Consumer Complaints",
     page_icon="⚖️",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -26,201 +29,226 @@ st.set_page_config(
 
 st.markdown(
     """
-    <style>
+<style>
 
-    /* MAIN BACKGROUND */
-    .stApp {
-        background: linear-gradient(
-            135deg,
-            #f8fafc 0%,
-            #eef2f7 100%
-        );
-    }
-
-
-    /* REMOVE DEFAULT TOP SPACE */
-    .block-container {
-        padding-top: 2rem;
-        padding-bottom: 2rem;
-        max-width: 1100px;
-    }
+/* MAIN APP */
+.stApp {
+    background: linear-gradient(
+        135deg,
+        #f8fafc 0%,
+        #eef2f7 100%
+    );
+}
 
 
-    /* SIDEBAR */
-    section[data-testid="stSidebar"] {
-        background: linear-gradient(
-            180deg,
-            #111827 0%,
-            #1e293b 100%
-        );
-    }
-
-    section[data-testid="stSidebar"] * {
-        color: #f8fafc;
-    }
+/* MAIN CONTENT */
+.block-container {
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+    max-width: 1100px;
+}
 
 
-    /* SIDEBAR TITLE */
-    .sidebar-title {
-        font-size: 1.5rem;
-        font-weight: 700;
-        margin-bottom: 0.5rem;
-    }
+/* SIDEBAR */
+section[data-testid="stSidebar"] {
+    background: linear-gradient(
+        180deg,
+        #111827 0%,
+        #1e293b 100%
+    );
+}
 
-    .sidebar-subtitle {
-        font-size: 0.9rem;
-        color: #cbd5e1;
-        line-height: 1.6;
-    }
-
-
-    /* HERO SECTION */
-    .hero-container {
-        background: linear-gradient(
-            135deg,
-            #0f172a,
-            #1e3a5f
-        );
-        padding: 2.5rem 2rem;
-        border-radius: 20px;
-        margin-bottom: 2rem;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.12);
-    }
-
-    .hero-title {
-        font-size: 2.6rem;
-        font-weight: 800;
-        color: white;
-        margin-bottom: 0.4rem;
-    }
-
-    .hero-subtitle {
-        font-size: 1.05rem;
-        color: #cbd5e1;
-        line-height: 1.6;
-    }
+section[data-testid="stSidebar"] * {
+    color: #f8fafc;
+}
 
 
-    /* INFO CARDS */
-    .info-card {
-        background: white;
-        padding: 1.2rem;
-        border-radius: 15px;
-        border: 1px solid #e2e8f0;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-        height: 100%;
-    }
+/* SIDEBAR TITLE */
+.sidebar-title {
+    font-size: 1.7rem;
+    font-weight: 750;
+    margin-bottom: 0.8rem;
+    color: white;
+}
 
-    .card-title {
-        font-size: 1rem;
-        font-weight: 700;
-        color: #0f172a;
-        margin-bottom: 0.4rem;
-    }
-
-    .card-text {
-        font-size: 0.9rem;
-        color: #64748b;
-        line-height: 1.5;
-    }
+.sidebar-subtitle {
+    font-size: 0.95rem;
+    color: #cbd5e1;
+    line-height: 1.7;
+}
 
 
-    /* CHAT MESSAGE */
-    [data-testid="stChatMessage"] {
-        background-color: white;
-        border-radius: 16px;
-        padding: 1rem;
-        margin-bottom: 1rem;
-        border: 1px solid #e2e8f0;
-        box-shadow: 0 3px 10px rgba(0,0,0,0.04);
-    }
+/* HERO SECTION */
+.hero-container {
+    background: linear-gradient(
+        135deg,
+        #0f172a,
+        #1e3a5f
+    );
+    padding: 2.5rem 2.5rem;
+    border-radius: 22px;
+    margin-bottom: 2rem;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
+}
+
+.hero-badge {
+    display: inline-block;
+    background: rgba(255, 255, 255, 0.12);
+    color: #e2e8f0;
+    padding: 8px 16px;
+    border-radius: 30px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 18px;
+    letter-spacing: 0.3px;
+}
+
+.hero-title {
+    font-size: 3rem;
+    font-weight: 800;
+    color: white;
+    letter-spacing: -1px;
+    margin-bottom: 12px;
+}
+
+.hero-subtitle {
+    font-size: 1.08rem;
+    color: #cbd5e1;
+    line-height: 1.7;
+    max-width: 720px;
+}
+
+.hero-subtitle b {
+    color: white;
+}
 
 
-    /* CHAT INPUT */
-    [data-testid="stChatInput"] {
-        border-radius: 18px;
-    }
-
-    [data-testid="stChatInput"] textarea {
-        border-radius: 14px !important;
-        border: 1px solid #cbd5e1 !important;
-        background-color: white !important;
-    }
+/* SECTION HEADING */
+.section-heading {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin-top: 1.5rem;
+    margin-bottom: 1rem;
+}
 
 
-    /* BUTTON */
-    .stButton > button {
-        width: 100%;
-        border-radius: 10px;
-        border: none;
-        padding: 0.6rem;
-        font-weight: 600;
-        transition: 0.2s;
-    }
+/* INFO CARDS */
+.info-card {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 18px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+    height: 100%;
+    min-height: 150px;
+    transition: 0.2s;
+}
 
-    .stButton > button:hover {
-        transform: translateY(-1px);
-    }
+.info-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.10);
+}
 
+.card-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 0.8rem;
+}
 
-    /* EXPANDER */
-    .streamlit-expanderHeader {
-        background-color: #f8fafc;
-        border-radius: 10px;
-        font-weight: 600;
-    }
-
-
-    /* SECTION HEADINGS */
-    .section-heading {
-        font-size: 1.2rem;
-        font-weight: 700;
-        color: #0f172a;
-        margin-top: 1.5rem;
-        margin-bottom: 1rem;
-    }
+.card-text {
+    font-size: 0.92rem;
+    color: #64748b;
+    line-height: 1.6;
+}
 
 
-    /* WELCOME MESSAGE */
-    .welcome-box {
-        background: white;
-        border-radius: 18px;
-        padding: 2rem;
-        border: 1px solid #e2e8f0;
-        text-align: center;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.04);
-        margin-top: 1rem;
-    }
+/* WELCOME BOX */
+.welcome-box {
+    background: white;
+    border-radius: 20px;
+    padding: 2.5rem;
+    border: 1px solid #e2e8f0;
+    text-align: center;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.05);
+    margin-top: 2rem;
+}
 
-    .welcome-icon {
-        font-size: 3rem;
-        margin-bottom: 0.5rem;
-    }
+.welcome-icon {
+    font-size: 3rem;
+    margin-bottom: 0.7rem;
+}
 
-    .welcome-title {
-        font-size: 1.4rem;
-        font-weight: 700;
-        color: #0f172a;
-    }
+.welcome-title {
+    font-size: 1.45rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 0.7rem;
+}
 
-    .welcome-text {
-        color: #64748b;
-        margin-top: 0.5rem;
-        line-height: 1.6;
-    }
-
-
-    /* HIDE STREAMLIT BRANDING */
-    #MainMenu {
-        visibility: hidden;
-    }
-
-    footer {
-        visibility: hidden;
-    }
+.welcome-text {
+    color: #64748b;
+    line-height: 1.7;
+}
 
 
-    </style>
+/* CHAT MESSAGES */
+[data-testid="stChatMessage"] {
+    background-color: white;
+    border-radius: 16px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.04);
+}
+
+
+/* CHAT INPUT */
+[data-testid="stChatInput"] {
+    border-radius: 18px;
+}
+
+[data-testid="stChatInput"] textarea {
+    border-radius: 14px !important;
+    border: 1px solid #cbd5e1 !important;
+    background-color: white !important;
+}
+
+
+/* BUTTON */
+.stButton > button {
+    width: 100%;
+    border-radius: 10px;
+    border: none;
+    padding: 0.65rem;
+    font-weight: 600;
+    transition: 0.2s;
+}
+
+.stButton > button:hover {
+    transform: translateY(-1px);
+}
+
+
+/* EXPANDER */
+.streamlit-expanderHeader {
+    background-color: #f8fafc;
+    border-radius: 10px;
+    font-weight: 600;
+}
+
+
+/* HIDE STREAMLIT BRANDING */
+#MainMenu {
+    visibility: hidden;
+}
+
+footer {
+    visibility: hidden;
+}
+
+</style>
     """,
     unsafe_allow_html=True
 )
@@ -232,18 +260,22 @@ st.markdown(
 
 st.markdown(
     """
-    <div class="hero-container">
+<div class="hero-container">
 
-        <div class="hero-title">
-            ⚖️ Consumer Legal AI
-        </div>
+<div class="hero-badge">
+⚖️ AI-Powered Legal Assistance
+</div>
 
-        <div class="hero-subtitle">
-            Get AI-powered assistance for consumer rights and legal concerns
-            based on the Consumer Protection Act, 2019.
-        </div>
+<div class="hero-title">
+Consumer Legal AI
+</div>
 
-    </div>
+<div class="hero-subtitle">
+Get AI-powered assistance for consumer rights and legal concerns based on
+<b>The Consumer Protection Act, 2019</b>.
+</div>
+
+</div>
     """,
     unsafe_allow_html=True
 )
@@ -265,14 +297,14 @@ with st.sidebar:
 
     st.markdown(
         """
-        <div class="sidebar-title">
-            ⚖️ Consumer Legal AI
-        </div>
+<div class="sidebar-title">
+⚖️ Consumer Legal AI
+</div>
 
-        <div class="sidebar-subtitle">
-            Your AI assistant for understanding consumer rights
-            under the Consumer Protection Act, 2019.
-        </div>
+<div class="sidebar-subtitle">
+Your AI assistant for understanding consumer rights under the
+Consumer Protection Act, 2019.
+</div>
         """,
         unsafe_allow_html=True
     )
@@ -308,7 +340,11 @@ with st.sidebar:
 if len(st.session_state.chat_history) == 0:
 
     st.markdown(
-        '<div class="section-heading">How can I help you today?</div>',
+        """
+<div class="section-heading">
+How can I help you today?
+</div>
+        """,
         unsafe_allow_html=True
     )
 
@@ -318,76 +354,86 @@ if len(st.session_state.chat_history) == 0:
 
         st.markdown(
             """
-            <div class="info-card">
-                <div class="card-title">
-                    🛍️ Product Issues
-                </div>
+<div class="info-card">
 
-                <div class="card-text">
-                    Understand your rights when you receive
-                    defective, damaged, or incorrect products.
-                </div>
-            </div>
+<div class="card-title">
+🛍️ Product Issues
+</div>
+
+<div class="card-text">
+Understand your rights when you receive defective,
+damaged, or incorrect products.
+</div>
+
+</div>
             """,
             unsafe_allow_html=True
         )
+
 
     with col2:
 
         st.markdown(
             """
-            <div class="info-card">
-                <div class="card-title">
-                    💳 Refund Problems
-                </div>
+<div class="info-card">
 
-                <div class="card-text">
-                    Learn about consumer rights related to
-                    refunds, replacements, and cancellations.
-                </div>
-            </div>
+<div class="card-title">
+💳 Refund Problems
+</div>
+
+<div class="card-text">
+Learn about consumer rights related to refunds,
+replacements, and cancellations.
+</div>
+
+</div>
             """,
             unsafe_allow_html=True
         )
+
 
     with col3:
 
         st.markdown(
             """
-            <div class="info-card">
-                <div class="card-title">
-                    📢 Consumer Complaints
-                </div>
+<div class="info-card">
 
-                <div class="card-text">
-                    Understand possible remedies and actions
-                    available under consumer protection law.
-                </div>
-            </div>
+<div class="card-title">
+📢 Consumer Complaints
+</div>
+
+<div class="card-text">
+Understand possible remedies and actions available
+under consumer protection law.
+</div>
+
+</div>
             """,
             unsafe_allow_html=True
         )
 
+
     st.markdown("<br>", unsafe_allow_html=True)
+
 
     st.markdown(
         """
-        <div class="welcome-box">
+<div class="welcome-box">
 
-            <div class="welcome-icon">
-                ⚖️
-            </div>
+<div class="welcome-icon">
+⚖️
+</div>
 
-            <div class="welcome-title">
-                Describe your consumer issue
-            </div>
+<div class="welcome-title">
+Describe your consumer issue
+</div>
 
-            <div class="welcome-text">
-                Tell me what happened, and I will analyze your query
-                using the Consumer Protection Act, 2019.
-            </div>
+<div class="welcome-text">
+Tell me what happened, and I will analyze your query
+using the Consumer Protection Act, 2019.
+</div>
 
-        </div>
+</div>
         """,
         unsafe_allow_html=True
     )
@@ -428,10 +474,6 @@ vectorstore.add_documents(
 # --------------------------------------------------
 # SPARSE VECTOR
 # --------------------------------------------------
-
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
-
 
 tfidf_vec = TfidfVectorizer()
 
@@ -497,7 +539,11 @@ llm = genai.GenerativeModel(
 # --------------------------------------------------
 
 st.markdown(
-    '<div class="section-heading">💬 Legal Assistant</div>',
+    """
+<div class="section-heading">
+💬 Legal Assistant
+</div>
+    """,
     unsafe_allow_html=True
 )
 
