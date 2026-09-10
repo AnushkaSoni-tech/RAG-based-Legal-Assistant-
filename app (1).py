@@ -616,4 +616,3 @@ if question:
             "content": answer
         }
     )
-```
