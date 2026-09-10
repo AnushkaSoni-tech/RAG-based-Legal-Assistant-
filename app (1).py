@@ -11,10 +11,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 
-# --------------------------------------------------
 # PAGE CONFIG
-# --------------------------------------------------
-
 st.set_page_config(
     page_title="AI-Powered legal Assistant for Indian Consumer Complaints",
     page_icon="⚖️",
@@ -23,10 +20,7 @@ st.set_page_config(
 )
 
 
-# --------------------------------------------------
 # CUSTOM CSS
-# --------------------------------------------------
-
 st.markdown(
     """
 <style>
@@ -254,10 +248,7 @@ footer {
 )
 
 
-# --------------------------------------------------
-# HEADER / HERO SECTION
-# --------------------------------------------------
-
+# HEADER 
 st.markdown(
     """
 <div class="hero-container">
@@ -280,19 +271,11 @@ Get AI-powered assistance for consumer rights and legal concerns based on
     unsafe_allow_html=True
 )
 
-
-# --------------------------------------------------
 # CHAT HISTORY
-# --------------------------------------------------
-
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
-
-# --------------------------------------------------
 # SIDEBAR
-# --------------------------------------------------
-
 with st.sidebar:
 
     st.markdown(
@@ -333,10 +316,7 @@ Consumer Protection Act, 2019.
     )
 
 
-# --------------------------------------------------
 # QUICK INFORMATION CARDS
-# --------------------------------------------------
-
 if len(st.session_state.chat_history) == 0:
 
     st.markdown(
@@ -439,9 +419,7 @@ using the Consumer Protection Act, 2019.
     )
 
 
-# --------------------------------------------------
 # RAG-PIPELINE
-# --------------------------------------------------
 
 # LOADING DOCUMENT
 loader = PyPDFLoader("consumer_act.pdf")
@@ -471,10 +449,8 @@ vectorstore.add_documents(
 )
 
 
-# --------------------------------------------------
-# SPARSE VECTOR
-# --------------------------------------------------
 
+# SPARSE VECTOR
 tfidf_vec = TfidfVectorizer()
 
 tfidf_matrix = tfidf_vec.fit_transform(
@@ -482,10 +458,7 @@ tfidf_matrix = tfidf_vec.fit_transform(
 )
 
 
-# --------------------------------------------------
 # HYBRID RETRIEVAL
-# --------------------------------------------------
-
 def hybrid_retrival(query, k=4):
 
     # Dense
@@ -521,10 +494,8 @@ def hybrid_retrival(query, k=4):
     return combine_doc[:k]
 
 
-# --------------------------------------------------
-# API KEY LOADING
-# --------------------------------------------------
 
+# API KEY LOADING
 genai.configure(
     api_key=st.secrets["GOOGLE_API_KEY"]
 )
@@ -533,11 +504,7 @@ llm = genai.GenerativeModel(
     "gemini-2.5-flash"
 )
 
-
-# --------------------------------------------------
 # CHAT AREA TITLE
-# --------------------------------------------------
-
 st.markdown(
     """
 <div class="section-heading">
@@ -548,21 +515,14 @@ st.markdown(
 )
 
 
-# --------------------------------------------------
 # DISPLAY PREVIOUS CHAT
-# --------------------------------------------------
-
 for message in st.session_state.chat_history:
 
     with st.chat_message(message["role"]):
 
         st.write(message["content"])
 
-
-# --------------------------------------------------
 # USER QUERY
-# --------------------------------------------------
-
 question = st.chat_input(
     "Describe your consumer issue..."
 )
