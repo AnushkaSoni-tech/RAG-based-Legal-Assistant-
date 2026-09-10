@@ -198,17 +198,49 @@ section[data-testid="stSidebar"] * {
 }
 
 
-/* CHAT INPUT */
+/* CHAT INPUT CONTAINER */
+
 [data-testid="stChatInput"] {
-    border-radius: 18px;
+    background: transparent !important;
 }
+
+
+/* TEXT AREA */
 
 [data-testid="stChatInput"] textarea {
-    border-radius: 14px !important;
+    background-color: #ffffff !important;
+    color: #111827 !important;
+    -webkit-text-fill-color: #111827 !important;
+
+    caret-color: #111827 !important;
+
     border: 1px solid #cbd5e1 !important;
-    background-color: white !important;
+    border-radius: 14px !important;
+
+    font-size: 16px !important;
 }
 
+
+/* PLACEHOLDER */
+
+[data-testid="stChatInput"] textarea::placeholder {
+    color: #94a3b8 !important;
+    opacity: 1 !important;
+}
+
+
+/* CHAT INPUT WRAPPER */
+
+[data-testid="stChatInput"] > div {
+    color: #111827 !important;
+}
+
+
+/* SEND BUTTON */
+
+[data-testid="stChatInput"] button {
+    border-radius: 12px !important;
+}
 
 /* BUTTON */
 .stButton > button {
