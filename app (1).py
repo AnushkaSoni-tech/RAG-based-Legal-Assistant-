@@ -187,14 +187,57 @@ section[data-testid="stSidebar"] * {
 }
 
 
-/* CHAT MESSAGES */
+/* --------------------------------------------------
+   CHAT MESSAGES
+-------------------------------------------------- */
+
 [data-testid="stChatMessage"] {
-    background-color: white;
-    border-radius: 16px;
-    padding: 1rem;
+    background-color: #ffffff !important;
+    color: #111827 !important;
+
+    border-radius: 18px;
+    padding: 1.2rem;
     margin-bottom: 1rem;
-    border: 1px solid #e2e8f0;
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.04);
+
+    border: 1px solid #dbe3ee;
+
+    box-shadow:
+        0 4px 15px rgba(15, 23, 42, 0.06);
+}
+
+
+/* ALL TEXT INSIDE CHAT */
+
+[data-testid="stChatMessage"] p,
+[data-testid="stChatMessage"] span,
+[data-testid="stChatMessage"] li,
+[data-testid="stChatMessage"] div,
+[data-testid="stChatMessage"] .stMarkdown {
+    color: #111827 !important;
+}
+
+
+/* HEADINGS */
+
+[data-testid="stChatMessage"] h1,
+[data-testid="stChatMessage"] h2,
+[data-testid="stChatMessage"] h3,
+[data-testid="stChatMessage"] h4 {
+    color: #0f172a !important;
+}
+
+
+/* BOLD TEXT */
+
+[data-testid="stChatMessage"] strong {
+    color: #0f172a !important;
+}
+
+
+/* LINKS */
+
+[data-testid="stChatMessage"] a {
+    color: #2563eb !important;
 }
 
 
