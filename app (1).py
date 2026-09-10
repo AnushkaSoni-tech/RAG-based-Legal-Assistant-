@@ -1,3 +1,4 @@
+```python
 import streamlit as st
 
 # IMPORTING LIBRARIES
@@ -7,42 +8,390 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.vectorstores import InMemoryVectorStore
 import google.generativeai as genai
 
+
 # --------------------------------------------------
-# STREAMLIT UI
+# PAGE CONFIG
 # --------------------------------------------------
 
 st.set_page_config(
     page_title="Consumer Legal AI",
     page_icon="⚖️",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-st.title("⚖️ Consumer Legal AI")
 
-st.write(
-    "AI-powered legal assistance based on the "
-    "Consumer Protection Act, 2019."
+# --------------------------------------------------
+# CUSTOM CSS
+# --------------------------------------------------
+
+st.markdown(
+    """
+    <style>
+
+    /* MAIN BACKGROUND */
+    .stApp {
+        background: linear-gradient(
+            135deg,
+            #f8fafc 0%,
+            #eef2f7 100%
+        );
+    }
+
+
+    /* REMOVE DEFAULT TOP SPACE */
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+        max-width: 1100px;
+    }
+
+
+    /* SIDEBAR */
+    section[data-testid="stSidebar"] {
+        background: linear-gradient(
+            180deg,
+            #111827 0%,
+            #1e293b 100%
+        );
+    }
+
+    section[data-testid="stSidebar"] * {
+        color: #f8fafc;
+    }
+
+
+    /* SIDEBAR TITLE */
+    .sidebar-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+
+    .sidebar-subtitle {
+        font-size: 0.9rem;
+        color: #cbd5e1;
+        line-height: 1.6;
+    }
+
+
+    /* HERO SECTION */
+    .hero-container {
+        background: linear-gradient(
+            135deg,
+            #0f172a,
+            #1e3a5f
+        );
+        padding: 2.5rem 2rem;
+        border-radius: 20px;
+        margin-bottom: 2rem;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+    }
+
+    .hero-title {
+        font-size: 2.6rem;
+        font-weight: 800;
+        color: white;
+        margin-bottom: 0.4rem;
+    }
+
+    .hero-subtitle {
+        font-size: 1.05rem;
+        color: #cbd5e1;
+        line-height: 1.6;
+    }
+
+
+    /* INFO CARDS */
+    .info-card {
+        background: white;
+        padding: 1.2rem;
+        border-radius: 15px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        height: 100%;
+    }
+
+    .card-title {
+        font-size: 1rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 0.4rem;
+    }
+
+    .card-text {
+        font-size: 0.9rem;
+        color: #64748b;
+        line-height: 1.5;
+    }
+
+
+    /* CHAT MESSAGE */
+    [data-testid="stChatMessage"] {
+        background-color: white;
+        border-radius: 16px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 3px 10px rgba(0,0,0,0.04);
+    }
+
+
+    /* CHAT INPUT */
+    [data-testid="stChatInput"] {
+        border-radius: 18px;
+    }
+
+    [data-testid="stChatInput"] textarea {
+        border-radius: 14px !important;
+        border: 1px solid #cbd5e1 !important;
+        background-color: white !important;
+    }
+
+
+    /* BUTTON */
+    .stButton > button {
+        width: 100%;
+        border-radius: 10px;
+        border: none;
+        padding: 0.6rem;
+        font-weight: 600;
+        transition: 0.2s;
+    }
+
+    .stButton > button:hover {
+        transform: translateY(-1px);
+    }
+
+
+    /* EXPANDER */
+    .streamlit-expanderHeader {
+        background-color: #f8fafc;
+        border-radius: 10px;
+        font-weight: 600;
+    }
+
+
+    /* SECTION HEADINGS */
+    .section-heading {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin-top: 1.5rem;
+        margin-bottom: 1rem;
+    }
+
+
+    /* WELCOME MESSAGE */
+    .welcome-box {
+        background: white;
+        border-radius: 18px;
+        padding: 2rem;
+        border: 1px solid #e2e8f0;
+        text-align: center;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.04);
+        margin-top: 1rem;
+    }
+
+    .welcome-icon {
+        font-size: 3rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .welcome-title {
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: #0f172a;
+    }
+
+    .welcome-text {
+        color: #64748b;
+        margin-top: 0.5rem;
+        line-height: 1.6;
+    }
+
+
+    /* HIDE STREAMLIT BRANDING */
+    #MainMenu {
+        visibility: hidden;
+    }
+
+    footer {
+        visibility: hidden;
+    }
+
+
+    </style>
+    """,
+    unsafe_allow_html=True
 )
 
+
+# --------------------------------------------------
+# HEADER / HERO SECTION
+# --------------------------------------------------
+
+st.markdown(
+    """
+    <div class="hero-container">
+
+        <div class="hero-title">
+            ⚖️ Consumer Legal AI
+        </div>
+
+        <div class="hero-subtitle">
+            Get AI-powered assistance for consumer rights and legal concerns
+            based on the Consumer Protection Act, 2019.
+        </div>
+
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+
+# --------------------------------------------------
 # CHAT HISTORY
+# --------------------------------------------------
+
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
+
+# --------------------------------------------------
 # SIDEBAR
+# --------------------------------------------------
+
 with st.sidebar:
 
-    st.header("⚖️ Consumer Legal AI")
+    st.markdown(
+        """
+        <div class="sidebar-title">
+            ⚖️ Consumer Legal AI
+        </div>
 
-    st.write(
-        "Ask questions related to consumer rights "
-        "under the Consumer Protection Act, 2019."
+        <div class="sidebar-subtitle">
+            Your AI assistant for understanding consumer rights
+            under the Consumer Protection Act, 2019.
+        </div>
+        """,
+        unsafe_allow_html=True
     )
 
     st.divider()
 
-    if st.button("🗑️ Clear Chat"):
+    st.markdown("### 💡 What you can ask")
+
+    st.caption("• Defective products")
+    st.caption("• Refund and replacement issues")
+    st.caption("• Online shopping problems")
+    st.caption("• Misleading advertisements")
+    st.caption("• Consumer complaints")
+
+    st.divider()
+
+    if st.button("🗑️ Clear Conversation"):
         st.session_state.chat_history = []
         st.rerun()
+
+    st.divider()
+
+    st.caption(
+        "⚠️ This AI provides legal information for educational purposes "
+        "and should not be considered professional legal advice."
+    )
+
+
+# --------------------------------------------------
+# QUICK INFORMATION CARDS
+# --------------------------------------------------
+
+if len(st.session_state.chat_history) == 0:
+
+    st.markdown(
+        '<div class="section-heading">How can I help you today?</div>',
+        unsafe_allow_html=True
+    )
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+
+        st.markdown(
+            """
+            <div class="info-card">
+                <div class="card-title">
+                    🛍️ Product Issues
+                </div>
+
+                <div class="card-text">
+                    Understand your rights when you receive
+                    defective, damaged, or incorrect products.
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+    with col2:
+
+        st.markdown(
+            """
+            <div class="info-card">
+                <div class="card-title">
+                    💳 Refund Problems
+                </div>
+
+                <div class="card-text">
+                    Learn about consumer rights related to
+                    refunds, replacements, and cancellations.
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+    with col3:
+
+        st.markdown(
+            """
+            <div class="info-card">
+                <div class="card-title">
+                    📢 Consumer Complaints
+                </div>
+
+                <div class="card-text">
+                    Understand possible remedies and actions
+                    available under consumer protection law.
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    st.markdown(
+        """
+        <div class="welcome-box">
+
+            <div class="welcome-icon">
+                ⚖️
+            </div>
+
+            <div class="welcome-title">
+                Describe your consumer issue
+            </div>
+
+            <div class="welcome-text">
+                Tell me what happened, and I will analyze your query
+                using the Consumer Protection Act, 2019.
+            </div>
+
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 
 # --------------------------------------------------
@@ -83,6 +432,7 @@ vectorstore.add_documents(
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+
 
 tfidf_vec = TfidfVectorizer()
 
@@ -144,6 +494,16 @@ llm = genai.GenerativeModel(
 
 
 # --------------------------------------------------
+# CHAT AREA TITLE
+# --------------------------------------------------
+
+st.markdown(
+    '<div class="section-heading">💬 Legal Assistant</div>',
+    unsafe_allow_html=True
+)
+
+
+# --------------------------------------------------
 # DISPLAY PREVIOUS CHAT
 # --------------------------------------------------
 
@@ -169,11 +529,13 @@ if question:
     with st.chat_message("user"):
         st.write(question)
 
+
     # RETRIEVAL
     retrieved_documents = hybrid_retrival(
         question,
         k=4
     )
+
 
     # CONVERT DOCUMENTS TO TEXT
     retrieved_context = "\n\n".join(
@@ -183,6 +545,7 @@ if question:
         ]
     )
 
+
     # CONVERSATION HISTORY
     history = "\n".join(
         [
@@ -191,12 +554,14 @@ if question:
         ]
     )
 
+
     # PROMPT
     prompt = prompt.format(
         history=history,
         retrieved_context=retrieved_context,
         question=question
     )
+
 
     # GENERATION
     response = llm.generate_content(
@@ -205,10 +570,12 @@ if question:
 
     answer = response.text
 
+
     # DISPLAY AI RESPONSE
     with st.chat_message("assistant"):
 
         st.write(answer)
+
 
         # SHOW SOURCES
         with st.expander("📚 View Retrieved Legal Context"):
@@ -233,6 +600,7 @@ if question:
 
                 st.divider()
 
+
     # SAVE USER MESSAGE
     st.session_state.chat_history.append(
         {
@@ -241,6 +609,7 @@ if question:
         }
     )
 
+
     # SAVE AI MESSAGE
     st.session_state.chat_history.append(
         {
@@ -248,3 +617,4 @@ if question:
             "content": answer
         }
     )
+```
