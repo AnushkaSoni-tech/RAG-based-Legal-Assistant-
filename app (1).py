@@ -1,14 +1,5 @@
 import streamlit as st
-
-# IMPORTING LIBRARIES
-from config import chunk_size, chunk_overlap, embedding_model, prompt
-from langchain_community.document_loaders import PyPDFLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_core.vectorstores import InMemoryVectorStore
-import google.generativeai as genai
-
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
+from pipeline import ask_question
 
 
 # PAGE CONFIG
@@ -470,26 +461,23 @@ footer {
 )
 
 # HEADER
+# HEADER
 st.markdown(
-    """
+"""
 <div class="hero-container">
-
 <div class="hero-badge">
 ⚖️ AI-Powered Legal Assistance
 </div>
-
 <div class="hero-title">
 Consumer Legal AI
 </div>
-
 <div class="hero-subtitle">
 Get AI-powered assistance for consumer rights and legal concerns based on
 <b>The Consumer Protection Act, 2019</b>.
 </div>
-
 </div>
-    """,
-    unsafe_allow_html=True
+""",
+unsafe_allow_html=True
 )
 
 # CHAT HISTORY
@@ -646,106 +634,6 @@ using the Consumer Protection Act, 2019.
     )
 
 
-
-# RAG PIPELINE
-
-# LOADING DOCUMENT
-loader = PyPDFLoader(
-    "consumer_act.pdf"
-)
-
-documents = loader.load()
-
-
-# CHUNKING
-text_splitter = RecursiveCharacterTextSplitter(
-    chunk_size=chunk_size,
-    chunk_overlap=chunk_overlap
-)
-
-chunks = text_splitter.split_documents(
-    documents
-)
-
-
-# EMBEDDING
-model = embedding_model
-
-
-# VECTOR STORE
-vectorstore = InMemoryVectorStore(
-    embedding=model
-)
-
-vectorstore.add_documents(
-    documents=chunks
-)
-
-# SPARSE VECTOR
-tfidf_vec = TfidfVectorizer()
-
-tfidf_matrix = tfidf_vec.fit_transform(
-    [
-        chunk.page_content
-        for chunk in chunks
-    ]
-)
-
-# HYBRID RETRIEVAL
-def hybrid_retrival(query, k=4):
-
-    # DENSE RETRIEVAL
-    dense_doc = vectorstore.similarity_search(
-        query,
-        k=k
-    )
-
-
-    # TF-IDF RETRIEVAL
-    query_ = tfidf_vec.transform(
-        [query]
-    )
-
-    score = cosine_similarity(
-        query_,
-        tfidf_matrix
-    )[0]
-
-
-    # TOP K TF-IDF CHUNKS
-    top_indices = score.argsort()[-k:][::-1]
-
-    tfidf_doc = [
-        chunks[i]
-        for i in top_indices
-    ]
-
-
-    # COMBINE RESULTS
-    combine_doc = []
-
-    for doc in dense_doc + tfidf_doc:
-
-        if doc not in combine_doc:
-
-            combine_doc.append(
-                doc
-            )
-
-
-    return combine_doc[:k]
-
-# API KEY LOADING
-genai.configure(
-    api_key=st.secrets["GOOGLE_API_KEY"]
-)
-
-
-llm = genai.GenerativeModel(
-    "gemini-2.5-flash"
-)
-
-
 # CHAT AREA TITLE
 st.markdown(
     """
@@ -817,72 +705,22 @@ question = st.chat_input(
 if question:
 
     # DISPLAY USER QUESTION
-    with st.chat_message(
-        "user"
-    ):
+    with st.chat_message("user"):
+        st.write(question)
 
-        st.write(
-            question
-        )
-    # RETRIEVAL
-    retrieved_documents = hybrid_retrival(
+    # ASK PIPELINE
+    answer, retrieved_documents = ask_question(
         question,
-        k=4
+        st.session_state.chat_history
     )
 
-
-    # CONVERT DOCUMENTS TO TEXT
-    retrieved_context = "\n\n".join(
-        [
-            f"[Source {i + 1}]\n"
-            f"{doc.page_content}"
-
-            for i, doc in enumerate(
-                retrieved_documents
-            )
-        ]
-    )
-
-    # CONVERSATION HISTORY
-    history = "\n".join(
-        [
-            f"{message['role']}: "
-            f"{message['content']}"
-
-            for message in
-            st.session_state.chat_history
-        ]
-    )
-    # PROMPT
-    final_prompt = prompt.format(
-        history=history,
-        retrieved_context=retrieved_context,
-        question=question
-    )
-    # GENERATION
-    response = llm.generate_content(
-        final_prompt
-    )
-
-    answer = response.text
     # DISPLAY AI RESPONSE
-    with st.chat_message(
-        "assistant"
-    ):
+    with st.chat_message("assistant"):
+        st.write(answer)
 
-        st.write(
-            answer
-        )
+        st.markdown("### 📚 Retrieved Legal Sources")
 
-
-        st.markdown(
-            "### 📚 Retrieved Legal Sources"
-        )
-
-
-        for i, doc in enumerate(
-            retrieved_documents
-        ):
+        for i, doc in enumerate(retrieved_documents):
 
             page = doc.metadata.get(
                 "page_label",
@@ -892,49 +730,34 @@ if question:
                 )
             )
 
-
             source = doc.metadata.get(
                 "source",
                 "Consumer Protection Act, 2019"
             )
 
-
             with st.expander(
-                f"📄 Source {i + 1} — "
-                "Click to view legal context",
+                f"📄 Source {i + 1} — Click to view legal context",
                 expanded=False
             ):
 
-                st.markdown(
-                    f"**Page:** {page}"
-                )
+                st.markdown(f"**Page:** {page}")
+                st.markdown(f"**Document:** {source}")
+                st.markdown("#### Legal Text")
+                st.write(doc.page_content)
 
-                st.markdown(
-                    f"**Document:** {source}"
-                )
-
-                st.markdown(
-                    "#### Legal Text"
-                )
-
-                st.write(
-                    doc.page_content
-                )
-
+    # SAVE CHAT HISTORY
     st.session_state.chat_history.append(
         {
             "role": "user",
             "content": question
         }
     )
+
     st.session_state.chat_history.append(
         {
             "role": "assistant",
-
             "content": answer,
-
             "sources": [
-
                 {
                     "page": doc.metadata.get(
                         "page_label",
@@ -943,16 +766,14 @@ if question:
                             "Not available"
                         )
                     ),
-
                     "document": doc.metadata.get(
                         "source",
                         "Consumer Protection Act, 2019"
                     ),
-
                     "content": doc.page_content
                 }
-
                 for doc in retrieved_documents
             ]
         }
     )
+    
