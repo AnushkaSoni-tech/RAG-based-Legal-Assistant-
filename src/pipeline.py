@@ -10,10 +10,7 @@ documents = pdf_extraction("data/consumer_act.pdf")
 chunks=chunking(documents)
 
 #loading key
-from dotenv import load_dotenv
-import os
-load_dotenv()
-api_key = os.getenv("GEMINI_API_KEY")
+api_key = st.secrets["API-KEY"]
 if not api_key:
     raise ValueError("GEMINI_API_KEY not found. Check your .env file.")
 
