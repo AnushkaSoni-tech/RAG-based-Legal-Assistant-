@@ -1,4 +1,4 @@
-# ⚖️ AI Legal Assistant for Indian Consumer Complaints
+# ⚖️ AI-Powered Legal Assistant for Indian Consumer Complaints
 
 An AI-powered legal assistant that helps users understand and navigate consumer-related legal queries in India using Retrieval-Augmented Generation (RAG).
 
