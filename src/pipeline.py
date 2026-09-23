@@ -3,6 +3,7 @@ from .chunking.chunking import chunking
 from .config import embedding_model, prompt
 from .pdfExtraction import pdf_extraction
 from google import genai
+import streamlit as st
 
 documents = pdf_extraction("data/consumer_act.pdf")
 
