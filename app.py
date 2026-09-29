@@ -469,7 +469,7 @@ st.markdown(
 ⚖️ AI-Powered Legal Assistance
 </div>
 <div class="hero-title">
-Consumer Legal AI
+LEGAL ASSISTANT
 </div>
 <div class="hero-subtitle">
 Get AI-powered assistance for consumer rights and legal concerns based on
